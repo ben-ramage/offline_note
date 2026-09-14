@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
 class TabScaffold extends StatelessWidget {
+  final Widget? header;
   final String title;
   final List<Tab> tabs;
   final List<Widget> tabViews;
 
   const TabScaffold({
     super.key,
+    this.header,
     required this.title,
     required this.tabs,
     required this.tabViews,
@@ -17,12 +19,13 @@ class TabScaffold extends StatelessWidget {
     return DefaultTabController(
       length: tabs.length,
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(title),
-          centerTitle: true,
-          bottom: TabBar(tabs: tabs),
+        body: Column(
+          children: [
+            ?header,
+            TabBar(tabs: tabs),
+            Expanded(child: TabBarView(children: tabViews)),
+          ],
         ),
-        body: Expanded(child: TabBarView(children: tabViews)),
       ),
     );
   }
