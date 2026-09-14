@@ -25,3 +25,5 @@ flutter:
 
   uses-material-design: true
 
+  assets: 
+    - images/avataar_ben.png

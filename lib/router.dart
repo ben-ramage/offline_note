@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:offline_note/app_scaffold_with_navbar.dart';
 import 'package:offline_note/create/presentation/pages/create_page.dart';
-import 'package:offline_note/profile/presentation/pages/profile_page.dart';
+import 'package:offline_note/journal/presentation/pages/journal_page.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<NavigatorState> shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -23,7 +23,7 @@ final GoRouter router = GoRouter(
         ),
         GoRoute(
           path: '/profile',
-          builder: (context, state) => const ProfilePage(),
+          builder: (context, state) => const JournalPage(),
         ),
       ],
     ),

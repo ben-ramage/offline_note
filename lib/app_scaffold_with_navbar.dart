@@ -27,7 +27,10 @@ class AppScaffoldWithNavbar extends StatelessWidget {
         onTap: (index) => _onItemTapped(context, index),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.add), label: 'Create'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.menu_book),
+            label: 'Profile',
+          ),
         ],
       ),
     );
