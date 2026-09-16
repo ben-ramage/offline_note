@@ -47,28 +47,29 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyCH-8LANxYJO5Go8O-FQKKue5Ijz01PFYs',
-    appId: '1:360154002151:web:c48d054ae750f35998a842',
-    messagingSenderId: '360154002151',
-    projectId: 'offline-note-20253',
-    authDomain: 'offline-note-20253.firebaseapp.com',
-    storageBucket: 'offline-note-20253.firebasestorage.app',
+    apiKey: 'AIzaSyB6AKSo_QtryLrKuLRrNNudcDW1J1BJkEg',
+    appId: '1:258856870611:web:cad5419c134513aadf6a26',
+    messagingSenderId: '258856870611',
+    projectId: 'offline-note-23200',
+    authDomain: 'offline-note-23200.firebaseapp.com',
+    storageBucket: 'offline-note-23200.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyD3L5hW9fFZXxhzYanlqVg4tWTHt0nY7ls',
-    appId: '1:360154002151:android:64f45a8f67212dfa98a842',
-    messagingSenderId: '360154002151',
-    projectId: 'offline-note-20253',
-    storageBucket: 'offline-note-20253.firebasestorage.app',
+    apiKey: 'AIzaSyCARFkRszBVMxfvp_SbaT763NuWfSG83rU',
+    appId: '1:258856870611:android:39f773def74e782fdf6a26',
+    messagingSenderId: '258856870611',
+    projectId: 'offline-note-23200',
+    storageBucket: 'offline-note-23200.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAueo1VWjPhxdoYSwmrAdZ6d5uSDCh_Cmc',
-    appId: '1:360154002151:ios:e181f0fd6858a71098a842',
-    messagingSenderId: '360154002151',
-    projectId: 'offline-note-20253',
-    storageBucket: 'offline-note-20253.firebasestorage.app',
+    apiKey: 'AIzaSyAa1aUry0dRC2MpUbPCQCnj08XzTZVIjyY',
+    appId: '1:258856870611:ios:c3ed0f2436e5c272df6a26',
+    messagingSenderId: '258856870611',
+    projectId: 'offline-note-23200',
+    storageBucket: 'offline-note-23200.firebasestorage.app',
     iosBundleId: 'com.example.offlineNote',
   );
+
 }
