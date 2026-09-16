@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:offline_note/journal/presentation/pages/tab_scaffold.dart';
+import 'package:offline_note/features/journal/presentation/pages/tab_scaffold.dart';
 
 class JournalPage extends StatelessWidget {
   const JournalPage({super.key});
