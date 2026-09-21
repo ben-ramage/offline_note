@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class CreatePage extends StatelessWidget {
+class CreatePostPage extends StatelessWidget {
   const new({super.key});
 
   @override
