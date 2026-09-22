@@ -3,9 +3,11 @@ import 'dart:typed_data';
 const Object _unset = Object();
 
 class Post {
+  // Post Data
   final String id;
   final String userId;
 
+  // Post Fields
   final String title;
   final String paragraph;
 
