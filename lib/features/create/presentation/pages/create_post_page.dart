@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:offline_note/features/create/presentation/components/drafts_drawer.dart';
 import 'package:offline_note/features/create/presentation/cubits/draft_cubit.dart';
 import 'package:offline_note/features/create/presentation/cubits/draft_state.dart';
 
@@ -27,7 +28,7 @@ class CreatePostPage extends StatelessWidget {
           actions: [
             Builder(
               builder: (context) => IconButton(
-                onPressed: () => Scaffold.of(context).openDrawer(),
+                onPressed: () => DraftsDrawer(),
                 icon: const Icon(Icons.edit_note),
               ),
             ),
