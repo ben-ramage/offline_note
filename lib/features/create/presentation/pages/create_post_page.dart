@@ -3,9 +3,26 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:offline_note/features/create/presentation/components/drafts_drawer.dart';
 import 'package:offline_note/features/create/presentation/cubits/draft_cubit.dart';
 import 'package:offline_note/features/create/presentation/cubits/draft_state.dart';
+import 'package:offline_note/features/create/presentation/pages/edit_post_page.dart';
 
-class CreatePostPage extends StatelessWidget {
+class CreatePostPage extends StatefulWidget {
   const CreatePostPage({super.key});
+
+  @override
+  State<CreatePostPage> createState() => _CreatePostPageState();
+}
+
+class _CreatePostPageState extends State<CreatePostPage> {
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      context.read<DraftCubit>().startDraftsStream();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,12 +45,15 @@ class CreatePostPage extends StatelessWidget {
           actions: [
             Builder(
               builder: (context) => IconButton(
-                onPressed: () => DraftsDrawer(),
+                onPressed: () {
+                  Scaffold.of(context).openEndDrawer();
+                },
                 icon: const Icon(Icons.edit_note),
               ),
             ),
           ],
         ),
+        endDrawer: const DraftsDrawer(),
         body: SafeArea(
           child: SingleChildScrollView(
             child: Column(
@@ -48,7 +68,10 @@ class CreatePostPage extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30.0),
           ),
-          onPressed: () {},
+          onPressed: () {
+            Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => EditPostPage()));
+          },
           child: Icon(Icons.add, color: Colors.white),
         ),
       ),

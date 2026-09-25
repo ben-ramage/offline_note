@@ -5,7 +5,7 @@ class DraftTile extends StatelessWidget {
   final Widget? subtitle;
   final IconData? icon;
   final FontWeight fontWeight;
-  final Colors? iconColor;
+  final Color? iconColor;
   final VoidCallback? onTap;
 
   const DraftTile({

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:offline_note/features/create/presentation/components/draft_tile.dart';
 import 'package:offline_note/features/create/presentation/cubits/draft_cubit.dart';
 import 'package:offline_note/features/create/presentation/cubits/draft_state.dart';
+import 'package:offline_note/features/create/presentation/pages/edit_post_page.dart';
 
 class DraftsDrawer extends StatelessWidget {
   const DraftsDrawer({super.key});
@@ -72,8 +73,20 @@ class DraftsDrawer extends StatelessWidget {
                           },
                           child: DraftTile(
                             title: draft.title,
-                            subtitle: Text('Draft .createdAt'),
+                            subtitle: Text(
+                              draft.draftDate?.toLocal().toString() ?? '',
+                            ),
                             fontWeight: FontWeight.bold,
+                            onTap: () {
+                              Navigator.of(context).pop();
+
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      EditPostPage(draftToEdit: draft),
+                                ),
+                              );
+                            },
                           ),
                         );
                       },
