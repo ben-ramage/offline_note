@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:offline_note/features/create/data/local/local_post_database.dart';
 import 'package:offline_note/features/create/domain/entities/post.dart';
 import 'package:offline_note/features/create/domain/repos/local_post_repository.dart';
@@ -86,9 +87,14 @@ class DriftLocalPostRepository implements LocalPostRepository {
     if (imagePath != null && imagePath.isNotEmpty) {
       final imageFile = File(imagePath);
 
+      debugPrint('Deleting draft image: $imagePath');
+      debugPrint('Exists before deleted: ${await imageFile.exists()}');
+
       if (await imageFile.exists()) {
         await imageFile.delete();
       }
+
+      debugPrint('Exists after delete: ${await imageFile.exists()}');
     }
     await hardDeletePost(id);
   }
