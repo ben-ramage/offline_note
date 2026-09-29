@@ -33,9 +33,27 @@ class _EditPostPageState extends State<EditPostPage> {
   File? _imageFile;
 
   String? _currentDraftId;
+  String? _originalLocalImagePath;
+  String? _saveRequestId;
+  String? _submittedLocalImagePath;
 
+  final Set<String> _sessionImagePaths = <String>{};
+
+  bool _isPickingImage = false;
   bool _isRotatingImage = false;
   bool _isSavingDraft = false;
+  bool _isClosing = false;
+  bool _hasImageStateConflict = false;
+  bool _allowPop = false;
+
+  bool get _isImageBusy => _isPickingImage || _isRotatingImage;
+
+  bool get _isEditorBusy =>
+      _isPickingImage ||
+      _isRotatingImage ||
+      _isSavingDraft ||
+      _isClosing ||
+      _hasImageStateConflict;
 
   @override
   void initState() {
@@ -55,6 +73,7 @@ class _EditPostPageState extends State<EditPostPage> {
     paragraphTextController.text = source.paragraph;
 
     if (!kIsWeb && source.localImagePath != null) {
+      _originalLocalImagePath = source.localImagePath;
       _imageFile = File(source.localImagePath!);
     }
 
@@ -64,35 +83,74 @@ class _EditPostPageState extends State<EditPostPage> {
   }
 
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-
-    final result = await picker.pickImage(source: ImageSource.gallery);
-
-    if (result == null) {
+    if (_isEditorBusy || widget.postToEdit != null) {
       return;
     }
-
-    if (kIsWeb) {
-      final bytes = await result.readAsBytes();
-
-      if (!mounted) return;
-
-      setState(() {
-        _webImage = bytes;
-        _imageFile = null;
-      });
-
-      return;
-    }
-
-    final copiedFile = await _copyImageToAppStorage(result);
-
-    if (!mounted) return;
 
     setState(() {
-      _imageFile = copiedFile;
-      _webImage = null;
+      _isPickingImage = true;
     });
+
+    try {
+      final picker = ImagePicker();
+
+      final result = await picker.pickImage(source: ImageSource.gallery);
+
+      if (result == null) {
+        return;
+      }
+
+      if (kIsWeb) {
+        final bytes = await result.readAsBytes();
+
+        if (!mounted) return;
+
+        setState(() {
+          _webImage = bytes;
+          _imageFile = null;
+        });
+
+        return;
+      }
+
+      final previousPath = _imageFile?.path;
+
+      final copiedFile = await _copyImageToAppStorage(result);
+
+      if (!mounted) {
+        await _deleteFileIfExists(copiedFile.path);
+        return;
+      }
+
+      // Record ownership before presenting the image
+      _sessionImagePaths.add(copiedFile.path);
+
+      setState(() {
+        _imageFile = copiedFile;
+        _webImage = null;
+      });
+
+      // Delete the previous image only if it was editor owned.
+      await _deleteSessionImage(previousPath);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      debugPrint('Could not pick image:\n$error');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not select the image. Please try again.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPickingImage = false;
+        });
+      }
+    }
   }
 
   Future<File> _copyImageToAppStorage(XFile image) async {
@@ -113,7 +171,13 @@ class _EditPostPageState extends State<EditPostPage> {
       '${const Uuid().v4()}$extension',
     );
 
-    return File(image.path).copy(targetPath);
+    try {
+      return await File(image.path).copy(targetPath);
+    } catch (_) {
+      // A failed copy may leave an incomplete output.
+      await _deleteFailedOutputOrTrack(targetPath);
+      rethrow;
+    }
   }
 
   Future<String> _createPersistentImagePath() async {
@@ -129,11 +193,17 @@ class _EditPostPageState extends State<EditPostPage> {
   }
 
   Future<void> _rotateSelectedImage() async {
-    if (_isRotatingImage || _imageFile == null) return;
+    if (_isEditorBusy || _imageFile == null || widget.postToEdit != null) {
+      return;
+    }
+
+    final currentImage = _imageFile!;
 
     setState(() {
       _isRotatingImage = true;
     });
+
+    String? targetPath;
 
     try {
       final targetPath = await _createPersistentImagePath();
@@ -144,13 +214,31 @@ class _EditPostPageState extends State<EditPostPage> {
         degrees: 90,
       );
 
-      if (!mounted) return;
+      // Nothing owns this output, so delete it immediately.
+      if (!mounted) {
+        await _deletFileIfExists(rotatedPath);
+        return;
+      }
+
+      // Record ownership before presenting the rotated image.
+      _sessionImagePaths.add(rotatedPath);
 
       setState(() {
         _imageFile = File(rotatedPath);
       });
-    } catch (_) {
-      if (!mounted) return;
+
+      await _deleteSessionImage(currentImage.path);
+    } catch (error) {
+      // Rotation may fail after creating an empty or partial output.
+      if (targetPath != null) {
+        await _deleteFailedOutputOrTrack(targetPath);
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      debugPrint('Could not rotate image: |n$error');
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -164,6 +252,93 @@ class _EditPostPageState extends State<EditPostPage> {
         });
       }
     }
+  }
+
+  Future<bool> _deleteFileIfExists(String filePath) async {
+    try {
+      final file = File(filePath);
+
+      if (await file.exists()) {
+        await file.delete();
+      }
+
+      return true;
+    } catch (error) {
+      debugPrint('Could not delete local image: $filePath\n$error');
+
+      return false;
+    }
+  }
+
+  Future<void> _deleteFailedOutputOrTrack(String filePath) async {
+    final deleted = await _deleteFileIfExists(filePath);
+
+    if (deleted) {
+      _sessionImagePaths.remove(filePath);
+    } else {
+      // Retain ownership so normal cancellation/dispose cleanup
+      // can make another deletion attempt.
+      _sessionImagePaths.add(filePath);
+    }
+  }
+
+  Future<void> _deleteSessionImage(String? filePath) async {
+    if (filePath == null) {
+      return;
+    }
+
+    if (!_sessionImagePaths.contains(filePath)) {
+      return;
+    }
+
+    final deleted = await _deleteFileIfExists(filePath);
+
+    // Do not forget paths whose deletion failed.
+    if (deleted) {
+      _sessionImagePaths.remove(filePath);
+    }
+  }
+
+  Future<void> _cleanupSessionImages({String? preservePath}) async {
+    for (final filePath in _sessionImagePaths.toList()) {
+      if (filePath == preservePath) {
+        continue;
+      }
+
+      final deleted = await _deleteFileIfExists(filePath);
+
+      // Keep ownership when deletion fails so cleanup can be retried.
+      if (deleted) {
+        _sessionImagePaths.remove(filePath);
+      }
+    }
+  }
+
+  Future<void> _finalizeImagesAfterDraftSave(Post savedDraft) async {
+    final savedPath = savedDraft.localImagePath;
+    final originalPath = _originalLocalImagePath;
+
+    if (!kIsWeb) {
+      // The saved image now belongs to Drift.
+      // Remove it from editor ownership without deleting it.
+      if (savedPath != null) {
+        _sessionImagePaths.remove(savedPath);
+      }
+
+      // All other files created by this editor are obsolete.
+      await _cleanupSessionImages();
+
+      // Drift already references the replacement.
+      //
+      // Failure to remove the original creates an orphan, but must not
+      // invalidate the successful save or delete the replacement.
+      if (originalPath != null && originalPath != savedPath) {
+        await _deleteFileIfExists(originalPath);
+      }
+    }
+
+    _originalLocalImagePath = savedPath;
+    _submittedLocalImagePath = null;
   }
 
   Post _buildPost({
@@ -194,13 +369,14 @@ class _EditPostPageState extends State<EditPostPage> {
   }
 
   void _saveDraft() {
-    if (_isSavingDraft) {
+    if (_isEditorBusy || widget.postToEdit != null) {
       return;
     }
 
-    setState(() {
-      _isSavingDraft = true;
-    });
+    // Optional: keep this if drafts must pass the existing validators.
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
 
     _currentDraftId ??= const Uuid().v4();
 
@@ -210,8 +386,21 @@ class _EditPostPageState extends State<EditPostPage> {
       draftDate: widget.draftToEdit?.draftDate ?? DateTime.now(),
     );
 
-    context.read<DraftCubit>().saveDraft(draft);
+    final requestId = const Uuid().v4();
+
+    // Capture exactly what this operation submitted.
+    _saveRequestId = requestId;
+    _submittedLocalImagePath = draft.localImagePath;
+
+    setState(() {
+      _isSavingDraft = true;
+    });
+
+    context.read<DraftCubit>().saveDraft(draft, requestId: requestId);
   }
+
+  // Build _handleDraftState
+  // Build _handleBackNavigation
 
   @override
   Widget build(BuildContext context) {

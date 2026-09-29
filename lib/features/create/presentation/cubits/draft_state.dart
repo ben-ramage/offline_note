@@ -16,8 +16,21 @@ class DraftsLoaded extends DraftState {
 
 class DraftSaved extends DraftState {
   final Post draft;
+  final String requestId;
 
-  DraftSaved(this.draft);
+  DraftSaved({required this.draft, required this.requestId});
+}
+
+class DraftSavedFailed extends DraftState {
+  final String draftId;
+  final String requestId;
+  final String message;
+
+  DraftSavedFailed({
+    required this.draftId,
+    required this.requestId,
+    required this.message,
+  });
 }
 
 class DraftDeleted extends DraftState {

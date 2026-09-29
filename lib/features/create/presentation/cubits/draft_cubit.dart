@@ -33,7 +33,7 @@ class DraftCubit extends Cubit<DraftState> {
         );
   }
 
-  Future<void> saveDraft(Post draft) async {
+  Future<void> saveDraft(Post draft, {required String requestId}) async {
     try {
       emit(DraftSaving());
 
@@ -51,9 +51,15 @@ class DraftCubit extends Cubit<DraftState> {
 
       await localPostRepository.upsertPost(localDraft);
 
-      emit(DraftSaved(localDraft));
-    } catch (e) {
-      emit(DraftError("Failed to save draft: $e"));
+      emit(DraftSaved(draft: localDraft, requestId: requestId));
+    } catch (error) {
+      emit(
+        DraftSavedFailed(
+          draftId: draft.id,
+          requestId: requestId,
+          message: 'Failed to save draft: $error',
+        ),
+      );
     }
   }
 
