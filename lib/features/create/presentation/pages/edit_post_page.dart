@@ -8,6 +8,7 @@ import 'package:offline_note/features/create/domain/entities/post.dart';
 import 'package:offline_note/features/create/presentation/cubits/draft_cubit.dart';
 import 'package:offline_note/features/create/presentation/cubits/draft_state.dart';
 import 'package:offline_note/features/create/presentation/pages/post_form_content.dart';
+import 'package:offline_note/features/create/data/local/draft_image_session.dart';
 import 'package:offline_note/utils/image_rotation_utility.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
@@ -33,11 +34,8 @@ class _EditPostPageState extends State<EditPostPage> {
   File? _imageFile;
 
   String? _currentDraftId;
-  String? _originalLocalImagePath;
   String? _saveRequestId;
   String? _submittedLocalImagePath;
-
-  final Set<String> _sessionImagePaths = <String>{};
 
   bool _isPickingImage = false;
   bool _isRotatingImage = false;
@@ -55,6 +53,8 @@ class _EditPostPageState extends State<EditPostPage> {
       _isClosing ||
       _hasImageStateConflict;
 
+  late final DraftImageSession _imageSession;
+
   @override
   void initState() {
     super.initState();
@@ -62,6 +62,8 @@ class _EditPostPageState extends State<EditPostPage> {
     final draft = widget.draftToEdit;
     final post = widget.postToEdit;
     final source = draft ?? post;
+
+    _imageSession = DraftImageSession(!kIsWeb ? source?.localImagePath : null);
 
     if (source == null) {
       return;
@@ -73,7 +75,6 @@ class _EditPostPageState extends State<EditPostPage> {
     paragraphTextController.text = source.paragraph;
 
     if (!kIsWeb && source.localImagePath != null) {
-      _originalLocalImagePath = source.localImagePath;
       _imageFile = File(source.localImagePath!);
     }
 
@@ -118,21 +119,18 @@ class _EditPostPageState extends State<EditPostPage> {
       final copiedFile = await _copyImageToAppStorage(result);
 
       if (!mounted) {
-        await _deleteFileIfExists(copiedFile.path);
+        await _imageSession.deleteOrRetainOwnership(copiedFile.path);
         return;
       }
 
-      // Record ownership before presenting the image
-      _sessionImagePaths.add(copiedFile.path);
+      _imageSession.track(copiedFile.path);
 
       setState(() {
         _imageFile = copiedFile;
         _webImage = null;
       });
 
-      // Delete the previous image only if it was editor-owned.
-      // The original Drift-owned image is therefore preserved.
-      await _deleteSessionImage(previousPath);
+      await _imageSession.deleteIfOwned(previousPath);
     } catch (error) {
       if (!mounted) {
         return;
@@ -176,7 +174,7 @@ class _EditPostPageState extends State<EditPostPage> {
       return await File(image.path).copy(targetPath);
     } catch (_) {
       // A failed copy may leave an incomplete output.
-      await _deleteFailedOutputOrTrack(targetPath);
+      await _imageSession.deleteOrRetainOwnership(targetPath);
       rethrow;
     }
   }
@@ -217,29 +215,29 @@ class _EditPostPageState extends State<EditPostPage> {
 
       // Nothing owns this output, so delete it immediately.
       if (!mounted) {
-        await _deleteFileIfExists(rotatedPath);
+        await _imageSession.deleteOrRetainOwnership(rotatedPath);
         return;
       }
 
       // Record ownership before presenting the rotated image.
-      _sessionImagePaths.add(rotatedPath);
+      _imageSession.track(rotatedPath);
 
       setState(() {
         _imageFile = File(rotatedPath);
       });
 
-      await _deleteSessionImage(currentImage.path);
+      await _imageSession.deleteIfOwned(currentImage.path);
     } catch (error) {
       // Rotation may fail after creating an empty or partial output.
       if (targetPath != null) {
-        await _deleteFailedOutputOrTrack(targetPath);
+        await _imageSession.deleteOrRetainOwnership(targetPath);
       }
 
       if (!mounted) {
         return;
       }
 
-      debugPrint('Could not rotate image: \n$error');
+      debugPrint('Could not rotate image:\n$error');
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -255,97 +253,11 @@ class _EditPostPageState extends State<EditPostPage> {
     }
   }
 
-  Future<bool> _deleteFileIfExists(String filePath) async {
-    try {
-      final file = File(filePath);
-
-      if (await file.exists()) {
-        await file.delete();
-      }
-
-      return true;
-    } catch (error) {
-      debugPrint('Could not delete local image: $filePath\n$error');
-
-      return false;
-    }
-  }
-
-  Future<void> _deleteFailedOutputOrTrack(String filePath) async {
-    final deleted = await _deleteFileIfExists(filePath);
-
-    if (deleted) {
-      _sessionImagePaths.remove(filePath);
-    } else {
-      // Retain ownership so normal cancellation/dispose cleanup
-      // can make another deletion attempt.
-      _sessionImagePaths.add(filePath);
-    }
-  }
-
-  Future<void> _deleteSessionImage(String? filePath) async {
-    if (filePath == null) {
-      return;
-    }
-
-    if (!_sessionImagePaths.contains(filePath)) {
-      debugPrint('Not deleting Drift-owned image: $filePath');
-      return;
-    }
-
-    final file = File(filePath);
-    debugPrint('Deleting superseded session image: $filePath');
-    debugPrint('Exists before deletion: ${await file.exists()}');
-
-    final deleted = await _deleteFileIfExists(filePath);
-
-    debugPrint('Exists after deletion: ${await file.exists()}');
-
-    // Do not forget paths whose deletion failed.
-    if (deleted) {
-      _sessionImagePaths.remove(filePath);
-    }
-  }
-
-  Future<void> _cleanupSessionImages({String? preservePath}) async {
-    for (final filePath in _sessionImagePaths.toList()) {
-      if (filePath == preservePath) {
-        continue;
-      }
-
-      final deleted = await _deleteFileIfExists(filePath);
-
-      // Keep ownership when deletion fails so cleanup can be retried.
-      if (deleted) {
-        _sessionImagePaths.remove(filePath);
-      }
-    }
-  }
-
   Future<void> _finalizeImagesAfterDraftSave(Post savedDraft) async {
-    final savedPath = savedDraft.localImagePath;
-    final originalPath = _originalLocalImagePath;
-
     if (!kIsWeb) {
-      // The saved image now belongs to Drift.
-      // Remove it from editor ownership without deleting it.
-      if (savedPath != null) {
-        _sessionImagePaths.remove(savedPath);
-      }
-
-      // All other files created by this editor are obsolete.
-      await _cleanupSessionImages();
-
-      // Drift already references the replacement.
-      //
-      // Failure to remove the original creates an orphan, but must not
-      // invalidate the successful save or delete the replacement.
-      if (originalPath != null && originalPath != savedPath) {
-        await _deleteFileIfExists(originalPath);
-      }
+      await _imageSession.finalizeSave(savedPath: savedDraft.localImagePath);
     }
 
-    _originalLocalImagePath = savedPath;
     _submittedLocalImagePath = null;
   }
 
@@ -453,11 +365,10 @@ class _EditPostPageState extends State<EditPostPage> {
     final savedPath = state.draft.localImagePath;
 
     if (savedPath != submittedPath) {
-      if (savedPath != null) {
-        _sessionImagePaths.remove(savedPath);
+      if (!kIsWeb) {
+        _imageSession.markDriftOwned(savedPath);
       }
 
-      _originalLocalImagePath = savedPath;
       _saveRequestId = null;
       _submittedLocalImagePath = null;
 
@@ -534,7 +445,9 @@ class _EditPostPageState extends State<EditPostPage> {
     });
 
     // Delete only files created and owned by this editor session.
-    await _cleanupSessionImages();
+    if (!kIsWeb) {
+      await _imageSession.cleanup();
+    }
 
     if (!mounted) {
       return;
@@ -553,29 +466,6 @@ class _EditPostPageState extends State<EditPostPage> {
       }
       Navigator.of(context).pop();
     });
-  }
-
-  void _cleanupSessionImageSync({String? preservePath}) {
-    for (final filePath in _sessionImagePaths.toList()) {
-      if (filePath == preservePath) {
-        continue;
-      }
-
-      try {
-        final file = File(filePath);
-
-        if (file.existsSync()) {
-          file.deleteSync();
-        }
-
-        _sessionImagePaths.remove(filePath);
-      } catch (error) {
-        debugPrint(
-          'Could not clean up abandoned image: '
-          '$filePath\n$error',
-        );
-      }
-    }
   }
 
   @override
@@ -640,9 +530,12 @@ class _EditPostPageState extends State<EditPostPage> {
 
   @override
   void dispose() {
-    _cleanupSessionImageSync(
-      preservePath: _isSavingDraft ? _submittedLocalImagePath : null,
-    );
+    if (!kIsWeb) {
+      _imageSession.cleanupSync(
+        preservePath: _isSavingDraft ? _submittedLocalImagePath : null,
+      );
+    }
+
     titleTextController.dispose();
     paragraphTextController.dispose();
     super.dispose();
