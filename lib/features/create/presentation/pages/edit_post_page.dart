@@ -289,10 +289,17 @@ class _EditPostPageState extends State<EditPostPage> {
     }
 
     if (!_sessionImagePaths.contains(filePath)) {
+      debugPrint('Not deleting Drift-owned image: $filePath');
       return;
     }
 
+    final file = File(filePath);
+    debugPrint('Deleting superseded session image: $filePath');
+    debugPrint('Exists before deletion: ${await file.exists()}');
+
     final deleted = await _deleteFileIfExists(filePath);
+
+    debugPrint('Exists after deletion: ${await file.exists()}');
 
     // Do not forget paths whose deletion failed.
     if (deleted) {
