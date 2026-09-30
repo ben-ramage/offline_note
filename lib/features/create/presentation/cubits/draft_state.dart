@@ -21,12 +21,12 @@ class DraftSaved extends DraftState {
   DraftSaved({required this.draft, required this.requestId});
 }
 
-class DraftSavedFailed extends DraftState {
+class DraftSaveFailed extends DraftState {
   final String draftId;
   final String requestId;
   final String message;
 
-  DraftSavedFailed({
+  DraftSaveFailed({
     required this.draftId,
     required this.requestId,
     required this.message,

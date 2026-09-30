@@ -54,7 +54,7 @@ class DraftCubit extends Cubit<DraftState> {
       emit(DraftSaved(draft: localDraft, requestId: requestId));
     } catch (error) {
       emit(
-        DraftSavedFailed(
+        DraftSaveFailed(
           draftId: draft.id,
           requestId: requestId,
           message: 'Failed to save draft: $error',

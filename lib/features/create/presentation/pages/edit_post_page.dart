@@ -130,7 +130,8 @@ class _EditPostPageState extends State<EditPostPage> {
         _webImage = null;
       });
 
-      // Delete the previous image only if it was editor owned.
+      // Delete the previous image only if it was editor-owned.
+      // The original Drift-owned image is therefore preserved.
       await _deleteSessionImage(previousPath);
     } catch (error) {
       if (!mounted) {
@@ -206,17 +207,17 @@ class _EditPostPageState extends State<EditPostPage> {
     String? targetPath;
 
     try {
-      final targetPath = await _createPersistentImagePath();
+      targetPath = await _createPersistentImagePath();
 
       final rotatedPath = await rotateMobileImageInBackground(
-        path: _imageFile!.path,
+        path: currentImage.path,
         targetPath: targetPath,
         degrees: 90,
       );
 
       // Nothing owns this output, so delete it immediately.
       if (!mounted) {
-        await _deletFileIfExists(rotatedPath);
+        await _deleteFileIfExists(rotatedPath);
         return;
       }
 
@@ -238,7 +239,7 @@ class _EditPostPageState extends State<EditPostPage> {
         return;
       }
 
-      debugPrint('Could not rotate image: |n$error');
+      debugPrint('Could not rotate image: \n$error');
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -373,7 +374,7 @@ class _EditPostPageState extends State<EditPostPage> {
       return;
     }
 
-    // Optional: keep this if drafts must pass the existing validators.
+    // Require valid title and paragraph fields before saving.
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
@@ -399,76 +400,230 @@ class _EditPostPageState extends State<EditPostPage> {
     context.read<DraftCubit>().saveDraft(draft, requestId: requestId);
   }
 
-  // Build _handleDraftState
-  // Build _handleBackNavigation
+  Future<void> _handleDraftState(DraftState state) async {
+    if (state is DraftSaveFailed) {
+      final belongsToThisSave =
+          _isSavingDraft &&
+          state.draftId == _currentDraftId &&
+          state.requestId == _saveRequestId;
+
+      if (!belongsToThisSave) {
+        return;
+      }
+
+      _saveRequestId = null;
+      _submittedLocalImagePath = null;
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSavingDraft = false;
+      });
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(state.message)));
+
+      return;
+    }
+
+    if (state is! DraftSaved) {
+      return;
+    }
+
+    final belongsToThisSave =
+        _isSavingDraft &&
+        state.draft.id == _currentDraftId &&
+        state.requestId == _saveRequestId;
+
+    if (!belongsToThisSave) {
+      return;
+    }
+
+    // Capture both paths before clearing the active save state.
+    final submittedPath = _submittedLocalImagePath;
+    final savedPath = state.draft.localImagePath;
+
+    if (savedPath != submittedPath) {
+      if (savedPath != null) {
+        _sessionImagePaths.remove(savedPath);
+      }
+
+      _originalLocalImagePath = savedPath;
+      _saveRequestId = null;
+      _submittedLocalImagePath = null;
+
+      debugPrint(
+        'Draft saved with an unexpected local image path. '
+        'Expected: ${submittedPath ?? 'null'}, '
+        'saved: ${savedPath ?? 'null'}',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSavingDraft = false;
+        _hasImageStateConflict = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Draft saved, but its image state was unexpected. '
+            'Please close and reopen the draft.',
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    _currentDraftId = state.draft.id;
+
+    await _finalizeImagesAfterDraftSave(state.draft);
+
+    _saveRequestId = null;
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSavingDraft = false;
+      _allowPop = true;
+    });
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Draft saved.')));
+
+    _schedulePopAfterRebuild();
+  }
+
+  // Cleans editor-owned images before allowing the route to close.
+  Future<void> _handleBackNavigation() async {
+    if (_isClosing) {
+      return;
+    }
+
+    // Do not leave while Drift is saving or an image operation is running.
+    if (_isSavingDraft || _isImageBusy) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isSavingDraft
+                ? 'Please wait for the draft to finish saving.'
+                : 'Please wait for the image operation to finish.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isClosing = true;
+    });
+
+    // Delete only files created and owned by this editor session.
+    await _cleanupSessionImages();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _allowPop = true;
+    });
+    _schedulePopAfterRebuild();
+  }
+
+  void _schedulePopAfterRebuild() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop();
+    });
+  }
+
+  void _cleanupSessionImageSync({String? preservePath}) {
+    for (final filePath in _sessionImagePaths.toList()) {
+      if (filePath == preservePath) {
+        continue;
+      }
+
+      try {
+        final file = File(filePath);
+
+        if (file.existsSync()) {
+          file.deleteSync();
+        }
+
+        _sessionImagePaths.remove(filePath);
+      } catch (error) {
+        debugPrint(
+          'Could not clean up abandoned image: '
+          '$filePath\n$error',
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<DraftCubit, DraftState>(
-      listener: (context, state) {
-        if (state is DraftError) {
-          if (mounted) {
-            setState(() {
-              _isSavingDraft = false;
-            });
-          }
-
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(state.message)));
+    return PopScope(
+      canPop: _allowPop,
+      onPopInvokedWithResult: ((didPop, result) async {
+        if (didPop) {
+          return;
         }
 
-        if (state is DraftSaved) {
-          _currentDraftId = state.draft.id;
-
-          if (mounted) {
-            setState(() {
-              _isSavingDraft = false;
-            });
-          }
-
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('Draft saved.')));
-
-          Navigator.pop(context);
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            widget.draftToEdit != null
-                ? 'Edit Draft'
-                : widget.postToEdit != null
-                ? 'Edit Post'
-                : 'Create Post',
-          ),
-          actions: [
-            IconButton(
-              onPressed: (_isSavingDraft || widget.postToEdit != null)
-                  ? null
-                  : _saveDraft,
-              icon: _isSavingDraft
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_alt),
+        await _handleBackNavigation();
+      }),
+      child: BlocListener<DraftCubit, DraftState>(
+        listener: (_, state) async {
+          await _handleDraftState(state);
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(
+              widget.draftToEdit != null
+                  ? 'Edit Draft'
+                  : widget.postToEdit != null
+                  ? 'Edit Post'
+                  : 'Create Post',
             ),
-          ],
-        ),
-        body: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: PostFormContent(
-              formKey: _formKey,
-              titleTextController: titleTextController,
-              paragraphTextController: paragraphTextController,
-              imageFile: _imageFile,
-              webImage: _webImage,
-              onPickImage: _pickImage,
-              onRotateImage: _rotateSelectedImage,
-              isRotatingImage: _isRotatingImage,
-              postToEdit: widget.postToEdit,
+            actions: [
+              IconButton(
+                onPressed: (_isEditorBusy || widget.postToEdit != null)
+                    ? null
+                    : _saveDraft,
+                icon: _isSavingDraft
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_alt),
+              ),
+            ],
+          ),
+          body: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: PostFormContent(
+                formKey: _formKey,
+                titleTextController: titleTextController,
+                paragraphTextController: paragraphTextController,
+                imageFile: _imageFile,
+                webImage: _webImage,
+                onPickImage: _pickImage,
+                onRotateImage: _rotateSelectedImage,
+                isRotatingImage: _isRotatingImage,
+                postToEdit: widget.postToEdit,
+              ),
             ),
           ),
         ),
@@ -478,6 +633,9 @@ class _EditPostPageState extends State<EditPostPage> {
 
   @override
   void dispose() {
+    _cleanupSessionImageSync(
+      preservePath: _isSavingDraft ? _submittedLocalImagePath : null,
+    );
     titleTextController.dispose();
     paragraphTextController.dispose();
     super.dispose();
