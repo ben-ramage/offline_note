@@ -79,31 +79,55 @@ class DriftLocalPostRepository implements LocalPostRepository {
   Future<void> hardDeleteDraftWithLocalImage(String id) async {
     final draft = await getPostById(id);
 
-    if (draft?.isDraft != true) {
+    if (draft == null) {
+      throw StateError('Draft not found.');
+    }
+
+    if (!draft.isDraft) {
+      throw StateError('Post is not a draft.');
+    }
+
+    // Capture the path before deleting the row.
+    final imagePath = draft.localImagePath;
+
+    // Delete the Drift row first.
+    await hardDeletePost(id);
+
+    if (imagePath == null || imagePath.isEmpty) {
       return;
     }
 
-    final imagePath = draft?.localImagePath;
-    if (imagePath != null && imagePath.isNotEmpty) {
-      final imageFile = File(imagePath);
+    final imageFile = File(imagePath);
 
+    try {
       debugPrint('Deleting draft image: $imagePath');
-      debugPrint('Exists before deleted: ${await imageFile.exists()}');
 
-      if (await imageFile.exists()) {
+      final existedBeforeDelete = await imageFile.exists();
+
+      debugPrint('Exists before deleted: $existedBeforeDelete');
+
+      if (existedBeforeDelete) {
         await imageFile.delete();
       }
 
       debugPrint('Exists after delete: ${await imageFile.exists()}');
+    } catch (error) {
+      // The Drift row has already been deleted. Failure here may leave an
+      // orphaned file, but must not turn the completed draft deletion into
+      // an apparent failure.
+      debugPrint('Could not delete draft image: $imagePath\n$error');
     }
-    await hardDeletePost(id);
   }
 
   @override
   Future<void> hardDeletePost(String id) async {
-    await (database.delete(
+    final deletedRows = await (database.delete(
       database.localPosts,
     )..where((tbl) => tbl.id.equals(id))).go();
+
+    if (deletedRows == 0) {
+      throw StateError('Post not found.');
+    }
   }
 
   LocalPostsCompanion _mapPostToCompanion(Post post) {

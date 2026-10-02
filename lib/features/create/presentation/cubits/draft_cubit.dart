@@ -72,6 +72,11 @@ class DraftCubit extends Cubit<DraftState> {
         return;
       }
 
+      if (!draft.isDraft) {
+        emit(DraftError('Post is not a draft.'));
+        return;
+      }
+
       await localPostRepository.hardDeleteDraftWithLocalImage(draftId);
       emit(DraftDeleted(draftId));
     } catch (e) {
