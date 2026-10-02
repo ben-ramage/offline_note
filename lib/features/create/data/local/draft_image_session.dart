@@ -36,18 +36,10 @@ class DraftImageSession {
     }
 
     if (!_ownedPaths.contains(filePath)) {
-      debugPrint('Not deleting non-session image: $filePath');
       return;
     }
 
-    final file = File(filePath);
-
-    debugPrint('Deleting superseded session image: $filePath');
-    debugPrint('Exists before deletion: ${await file.exists()}');
-
     final deleted = await _deleteFileIfExists(filePath);
-
-    debugPrint('Exists after deletion: ${await file.exists()}');
 
     if (deleted) {
       _ownedPaths.remove(filePath);
