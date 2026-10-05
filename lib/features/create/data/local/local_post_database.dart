@@ -32,7 +32,23 @@ class LocalPosts extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [LocalPosts])
+class SyncJobs extends Table {
+  IntColumn get localId => integer().autoIncrement()();
+
+  TextColumn get entityId => text()();
+  TextColumn get jobType => text()();
+
+  TextColumn get status => text()();
+
+  IntColumn get attemptCount => integer().withDefault(const Constant(0))();
+
+  TextColumn get lastError => text().nullable()();
+
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+}
+
+@DriftDatabase(tables: [LocalPosts, SyncJobs])
 class LocalPostDatabase extends _$LocalPostDatabase {
   LocalPostDatabase([QueryExecutor? executor])
     : super(executor ?? _openConnection());
