@@ -33,19 +33,81 @@ class SyncQueueRepository {
     required String entityId,
     required SyncJobType jobType,
   }) async {
-    final now = DateTime.now();
+    await database.transaction(() async {
+      final existingPending =
+          await (database.select(database.syncJobs)
+                ..where(
+                  (tbl) =>
+                      tbl.entityId.equals(entityId) &
+                      tbl.status.equals(SyncJobStatus.pending.name),
+                )
+                ..orderBy([(tbl) => OrderingTerm.asc(tbl.localId)])
+                ..limit(1))
+              .getSingleOrNull();
 
-    await database
-        .into(database.syncJobs)
-        .insert(
-          SyncJobsCompanion.insert(
-            entityId: entityId,
-            jobType: jobType.name,
-            status: SyncJobStatus.pending.name,
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
+      final now = DateTime.now();
+
+      if (existingPending == null) {
+        await database
+            .into(database.syncJobs)
+            .insert(
+              SyncJobsCompanion.insert(
+                entityId: entityId,
+                jobType: jobType.name,
+                status: SyncJobStatus.pending.name,
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
+
+        return;
+      }
+
+      final existingType = SyncJobTypeX.fromValue(existingPending.jobType);
+      final effectiveType = _coalesce(existingType, jobType);
+
+      // The existing pending job already represents the required work.
+      if (effectiveType == existingType) {
+        return;
+      }
+
+      await (database.update(
+        database.syncJobs,
+      )..where((tbl) => tbl.localId.equals(existingPending.localId))).write(
+        SyncJobsCompanion(
+          jobType: Value(effectiveType.name),
+          updatedAt: Value(now),
+        ),
+      );
+    });
+  }
+
+  // Private Helper...
+  SyncJobType _coalesce(SyncJobType existing, SyncJobType incoming) {
+    // Nothing should replace a pending deletion.
+    if (existing == SyncJobType.deletePost) {
+      return SyncJobType.deletePost;
+    }
+
+    // Deletion supersedes pending publishes and updates.
+    if (incoming == SyncJobType.deletePost) {
+      return SyncJobType.deletePost;
+    }
+
+    // A publish reads the latest Post from Drift, so a subsequent update
+    // does not require another queue job.
+    if (existing == SyncJobType.publishPost) {
+      return SyncJobType.publishPost;
+    }
+
+    // Multiple pending updates collapse into one.
+    if (existing == SyncJobType.updatePost &&
+        incoming == SyncJobType.updatePost) {
+      return SyncJobType.updatePost;
+    }
+
+    // Handles unusual combos such as update followed by publish.
+    return incoming;
   }
 
   Future<SyncQueueItem?> claimNextPending() async {
