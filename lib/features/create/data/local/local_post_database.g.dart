@@ -945,15 +945,524 @@ class LocalPostsCompanion extends UpdateCompanion<LocalPost> {
   }
 }
 
+class $SyncJobsTable extends SyncJobs with TableInfo<$SyncJobsTable, SyncJob> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncJobsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _localIdMeta = const VerificationMeta(
+    'localId',
+  );
+  @override
+  late final GeneratedColumn<int> localId = GeneratedColumn<int>(
+    'local_id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _entityIdMeta = const VerificationMeta(
+    'entityId',
+  );
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+    'entity_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _jobTypeMeta = const VerificationMeta(
+    'jobType',
+  );
+  @override
+  late final GeneratedColumn<String> jobType = GeneratedColumn<String>(
+    'job_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _attemptCountMeta = const VerificationMeta(
+    'attemptCount',
+  );
+  @override
+  late final GeneratedColumn<int> attemptCount = GeneratedColumn<int>(
+    'attempt_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    localId,
+    entityId,
+    jobType,
+    status,
+    attemptCount,
+    lastError,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_jobs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncJob> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('local_id')) {
+      context.handle(
+        _localIdMeta,
+        localId.isAcceptableOrUnknown(data['local_id']!, _localIdMeta),
+      );
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(
+        _entityIdMeta,
+        entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityIdMeta);
+    }
+    if (data.containsKey('job_type')) {
+      context.handle(
+        _jobTypeMeta,
+        jobType.isAcceptableOrUnknown(data['job_type']!, _jobTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_jobTypeMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('attempt_count')) {
+      context.handle(
+        _attemptCountMeta,
+        attemptCount.isAcceptableOrUnknown(
+          data['attempt_count']!,
+          _attemptCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {localId};
+  @override
+  SyncJob map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncJob(
+      localId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}local_id'],
+      )!,
+      entityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_id'],
+      )!,
+      jobType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}job_type'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      attemptCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}attempt_count'],
+      )!,
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncJobsTable createAlias(String alias) {
+    return $SyncJobsTable(attachedDatabase, alias);
+  }
+}
+
+class SyncJob extends DataClass implements Insertable<SyncJob> {
+  final int localId;
+  final String entityId;
+  final String jobType;
+  final String status;
+  final int attemptCount;
+  final String? lastError;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const SyncJob({
+    required this.localId,
+    required this.entityId,
+    required this.jobType,
+    required this.status,
+    required this.attemptCount,
+    this.lastError,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['local_id'] = Variable<int>(localId);
+    map['entity_id'] = Variable<String>(entityId);
+    map['job_type'] = Variable<String>(jobType);
+    map['status'] = Variable<String>(status);
+    map['attempt_count'] = Variable<int>(attemptCount);
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  SyncJobsCompanion toCompanion(bool nullToAbsent) {
+    return SyncJobsCompanion(
+      localId: Value(localId),
+      entityId: Value(entityId),
+      jobType: Value(jobType),
+      status: Value(status),
+      attemptCount: Value(attemptCount),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory SyncJob.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncJob(
+      localId: serializer.fromJson<int>(json['localId']),
+      entityId: serializer.fromJson<String>(json['entityId']),
+      jobType: serializer.fromJson<String>(json['jobType']),
+      status: serializer.fromJson<String>(json['status']),
+      attemptCount: serializer.fromJson<int>(json['attemptCount']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'localId': serializer.toJson<int>(localId),
+      'entityId': serializer.toJson<String>(entityId),
+      'jobType': serializer.toJson<String>(jobType),
+      'status': serializer.toJson<String>(status),
+      'attemptCount': serializer.toJson<int>(attemptCount),
+      'lastError': serializer.toJson<String?>(lastError),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  SyncJob copyWith({
+    int? localId,
+    String? entityId,
+    String? jobType,
+    String? status,
+    int? attemptCount,
+    Value<String?> lastError = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => SyncJob(
+    localId: localId ?? this.localId,
+    entityId: entityId ?? this.entityId,
+    jobType: jobType ?? this.jobType,
+    status: status ?? this.status,
+    attemptCount: attemptCount ?? this.attemptCount,
+    lastError: lastError.present ? lastError.value : this.lastError,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  SyncJob copyWithCompanion(SyncJobsCompanion data) {
+    return SyncJob(
+      localId: data.localId.present ? data.localId.value : this.localId,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      jobType: data.jobType.present ? data.jobType.value : this.jobType,
+      status: data.status.present ? data.status.value : this.status,
+      attemptCount: data.attemptCount.present
+          ? data.attemptCount.value
+          : this.attemptCount,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncJob(')
+          ..write('localId: $localId, ')
+          ..write('entityId: $entityId, ')
+          ..write('jobType: $jobType, ')
+          ..write('status: $status, ')
+          ..write('attemptCount: $attemptCount, ')
+          ..write('lastError: $lastError, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    localId,
+    entityId,
+    jobType,
+    status,
+    attemptCount,
+    lastError,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncJob &&
+          other.localId == this.localId &&
+          other.entityId == this.entityId &&
+          other.jobType == this.jobType &&
+          other.status == this.status &&
+          other.attemptCount == this.attemptCount &&
+          other.lastError == this.lastError &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class SyncJobsCompanion extends UpdateCompanion<SyncJob> {
+  final Value<int> localId;
+  final Value<String> entityId;
+  final Value<String> jobType;
+  final Value<String> status;
+  final Value<int> attemptCount;
+  final Value<String?> lastError;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  const SyncJobsCompanion({
+    this.localId = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.jobType = const Value.absent(),
+    this.status = const Value.absent(),
+    this.attemptCount = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  SyncJobsCompanion.insert({
+    this.localId = const Value.absent(),
+    required String entityId,
+    required String jobType,
+    required String status,
+    this.attemptCount = const Value.absent(),
+    this.lastError = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+  }) : entityId = Value(entityId),
+       jobType = Value(jobType),
+       status = Value(status),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<SyncJob> custom({
+    Expression<int>? localId,
+    Expression<String>? entityId,
+    Expression<String>? jobType,
+    Expression<String>? status,
+    Expression<int>? attemptCount,
+    Expression<String>? lastError,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (localId != null) 'local_id': localId,
+      if (entityId != null) 'entity_id': entityId,
+      if (jobType != null) 'job_type': jobType,
+      if (status != null) 'status': status,
+      if (attemptCount != null) 'attempt_count': attemptCount,
+      if (lastError != null) 'last_error': lastError,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  SyncJobsCompanion copyWith({
+    Value<int>? localId,
+    Value<String>? entityId,
+    Value<String>? jobType,
+    Value<String>? status,
+    Value<int>? attemptCount,
+    Value<String?>? lastError,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+  }) {
+    return SyncJobsCompanion(
+      localId: localId ?? this.localId,
+      entityId: entityId ?? this.entityId,
+      jobType: jobType ?? this.jobType,
+      status: status ?? this.status,
+      attemptCount: attemptCount ?? this.attemptCount,
+      lastError: lastError ?? this.lastError,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (localId.present) {
+      map['local_id'] = Variable<int>(localId.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (jobType.present) {
+      map['job_type'] = Variable<String>(jobType.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (attemptCount.present) {
+      map['attempt_count'] = Variable<int>(attemptCount.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncJobsCompanion(')
+          ..write('localId: $localId, ')
+          ..write('entityId: $entityId, ')
+          ..write('jobType: $jobType, ')
+          ..write('status: $status, ')
+          ..write('attemptCount: $attemptCount, ')
+          ..write('lastError: $lastError, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$LocalPostDatabase extends GeneratedDatabase {
   _$LocalPostDatabase(QueryExecutor e) : super(e);
   $LocalPostDatabaseManager get managers => $LocalPostDatabaseManager(this);
   late final $LocalPostsTable localPosts = $LocalPostsTable(this);
+  late final $SyncJobsTable syncJobs = $SyncJobsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [localPosts];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [localPosts, syncJobs];
 }
 
 typedef $$LocalPostsTableCreateCompanionBuilder = LocalPostsCompanion Function({
@@ -1382,10 +1891,269 @@ typedef $$LocalPostsTableProcessedTableManager =
       LocalPost,
       PrefetchHooks Function()
     >;
+typedef $$SyncJobsTableCreateCompanionBuilder = SyncJobsCompanion Function({
+  Value<int> localId,
+  required String entityId,
+  required String jobType,
+  required String status,
+  Value<int> attemptCount,
+  Value<String?> lastError,
+  required DateTime createdAt,
+  required DateTime updatedAt,
+});
+typedef $$SyncJobsTableUpdateCompanionBuilder = SyncJobsCompanion Function({
+  Value<int> localId,
+  Value<String> entityId,
+  Value<String> jobType,
+  Value<String> status,
+  Value<int> attemptCount,
+  Value<String?> lastError,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+});
+
+class $$SyncJobsTableFilterComposer
+    extends Composer<_$LocalPostDatabase, $SyncJobsTable> {
+  $$SyncJobsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get localId => $composableBuilder(
+    column: $table.localId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get jobType => $composableBuilder(
+    column: $table.jobType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get attemptCount => $composableBuilder(
+    column: $table.attemptCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncJobsTableOrderingComposer
+    extends Composer<_$LocalPostDatabase, $SyncJobsTable> {
+  $$SyncJobsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get localId => $composableBuilder(
+    column: $table.localId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get jobType => $composableBuilder(
+    column: $table.jobType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get attemptCount => $composableBuilder(
+    column: $table.attemptCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncJobsTableAnnotationComposer
+    extends Composer<_$LocalPostDatabase, $SyncJobsTable> {
+  $$SyncJobsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get localId =>
+      $composableBuilder(column: $table.localId, builder: (column) => column);
+
+  GeneratedColumn<String> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get jobType =>
+      $composableBuilder(column: $table.jobType, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get attemptCount => $composableBuilder(
+    column: $table.attemptCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$SyncJobsTableTableManager
+    extends
+        RootTableManager<
+          _$LocalPostDatabase,
+          $SyncJobsTable,
+          SyncJob,
+          $$SyncJobsTableFilterComposer,
+          $$SyncJobsTableOrderingComposer,
+          $$SyncJobsTableAnnotationComposer,
+          $$SyncJobsTableCreateCompanionBuilder,
+          $$SyncJobsTableUpdateCompanionBuilder,
+          (
+            SyncJob,
+            BaseReferences<_$LocalPostDatabase, $SyncJobsTable, SyncJob>,
+          ),
+          SyncJob,
+          PrefetchHooks Function()
+        > {
+  $$SyncJobsTableTableManager(_$LocalPostDatabase db, $SyncJobsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncJobsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncJobsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncJobsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> localId = const Value.absent(),
+                Value<String> entityId = const Value.absent(),
+                Value<String> jobType = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> attemptCount = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+              }) => SyncJobsCompanion(
+                localId: localId,
+                entityId: entityId,
+                jobType: jobType,
+                status: status,
+                attemptCount: attemptCount,
+                lastError: lastError,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> localId = const Value.absent(),
+                required String entityId,
+                required String jobType,
+                required String status,
+                Value<int> attemptCount = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+              }) => SyncJobsCompanion.insert(
+                localId: localId,
+                entityId: entityId,
+                jobType: jobType,
+                status: status,
+                attemptCount: attemptCount,
+                lastError: lastError,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$SyncJobsTable, SyncJob>(table),
+                  BaseReferences<_$LocalPostDatabase, $SyncJobsTable, SyncJob>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncJobsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LocalPostDatabase,
+      $SyncJobsTable,
+      SyncJob,
+      $$SyncJobsTableFilterComposer,
+      $$SyncJobsTableOrderingComposer,
+      $$SyncJobsTableAnnotationComposer,
+      $$SyncJobsTableCreateCompanionBuilder,
+      $$SyncJobsTableUpdateCompanionBuilder,
+      (SyncJob, BaseReferences<_$LocalPostDatabase, $SyncJobsTable, SyncJob>),
+      SyncJob,
+      PrefetchHooks Function()
+    >;
 
 class $LocalPostDatabaseManager {
   final _$LocalPostDatabase _db;
   $LocalPostDatabaseManager(this._db);
   $$LocalPostsTableTableManager get localPosts =>
       $$LocalPostsTableTableManager(_db, _db.localPosts);
+  $$SyncJobsTableTableManager get syncJobs =>
+      $$SyncJobsTableTableManager(_db, _db.syncJobs);
 }

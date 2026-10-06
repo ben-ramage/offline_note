@@ -1,5 +1,5 @@
 import 'package:offline_note/features/create/data/local/local_post_database.dart';
-import 'package:offline_note/features/create/domain/entities/local_sync_state.dart';
+import 'package:offline_note/features/create/domain/entities/sync_types.dart';
 
 class SyncQueueItem {
   final int localId;

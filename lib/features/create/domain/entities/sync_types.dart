@@ -28,18 +28,12 @@ extension PendingActionX on PendingAction {
 
 extension SyncJobTypeX on SyncJobType {
   static SyncJobType fromValue(String value) {
-    return SyncJobType.values.firstWhere(
-      (element) => element.name == value,
-      orElse: () => SyncJobType.publishPost,
-    );
+    return SyncJobType.values.firstWhere((element) => element.name == value);
   }
 }
 
 extension SyncJobStatusX on SyncJobStatus {
   static SyncJobStatus fromValue(String value) {
-    return SyncJobStatus.values.firstWhere(
-      (element) => element.name == value,
-      orElse: () => SyncJobStatus.pending,
-    );
+    return SyncJobStatus.values.firstWhere((element) => element.name == value);
   }
 }
