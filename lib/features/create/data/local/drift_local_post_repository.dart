@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:offline_note/features/create/data/local/local_post_database.dart';
 import 'package:offline_note/features/create/domain/entities/post.dart';
+import 'package:offline_note/features/create/domain/entities/sync_types.dart';
 import 'package:offline_note/features/create/domain/repos/local_post_repository.dart';
 
 class DriftLocalPostRepository implements LocalPostRepository {
@@ -44,6 +45,27 @@ class DriftLocalPostRepository implements LocalPostRepository {
   }
 
   @override
+  Stream<List<Post>> watchPendingPosts(String userId) {
+    final query = database.select(database.localPosts)
+      ..where(
+        (tbl) =>
+            tbl.userId.equals(userId) &
+            tbl.isDraft.equals(false) &
+            tbl.syncState.isIn([
+              LocalSyncState.pending.name,
+              LocalSyncState.syncing.name,
+              LocalSyncState.failed.name,
+            ]),
+      )
+      ..orderBy([
+        (tbl) => OrderingTerm.desc(tbl.updatedAt),
+        (tbl) => OrderingTerm.desc(tbl.createdAt),
+      ]);
+
+    return query.watch().map((rows) => rows.map(_mapRowToPost).toList());
+  }
+
+  @override
   Future<void> upsertPost(Post post) async {
     await database
         .into(database.localPosts)
@@ -62,18 +84,48 @@ class DriftLocalPostRepository implements LocalPostRepository {
   }
 
   @override
-  Future<void> markDeleted(String id) async {
-    await (database.update(
-      database.localPosts,
-    )..where((tbl) => tbl.id.equals(id))).write(
-      LocalPostsCompanion(
-        isDeleted: const Value(true),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
+  Future<void> updateSyncMetadata(
+    String id, {
+    required LocalSyncState syncState,
+    required PendingAction pendingAction,
+    required String? lastSyncError,
+  }) async {
+    final updatedRows =
+        await (database.update(
+          database.localPosts,
+        )..where((tbl) => tbl.id.equals(id))).write(
+          LocalPostsCompanion(
+            syncState: Value(syncState.name),
+            pendingAction: Value(pendingAction.name),
+            lastSyncError: Value(lastSyncError),
+          ),
+        );
+
+    if (updatedRows == 0) {
+      throw StateError(
+        'Cannot update sync metadata because post $id was not found.',
+      );
+    }
   }
 
-  // Add Mark Sync State Later...
+  @override
+  Future<void> markDeleted(String id) async {
+    final updatedRows =
+        await (database.update(
+          database.localPosts,
+        )..where((tbl) => tbl.id.equals(id))).write(
+          LocalPostsCompanion(
+            isDeleted: const Value(true),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+
+    if (updatedRows == 0) {
+      throw StateError(
+        'Cannot mark post $id as deleted because it was not found.',
+      );
+    }
+  }
 
   @override
   Future<void> hardDeleteDraftWithLocalImage(String id) async {
