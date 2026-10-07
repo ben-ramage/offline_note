@@ -82,7 +82,6 @@ class SyncQueueRepository {
     });
   }
 
-  // Private Helper...
   SyncJobType _coalesce(SyncJobType existing, SyncJobType incoming) {
     // Nothing should replace a pending deletion.
     if (existing == SyncJobType.deletePost) {
@@ -112,43 +111,58 @@ class SyncQueueRepository {
 
   Future<SyncQueueItem?> claimNextPending() async {
     return database.transaction(() async {
-      final row =
+      final unfinishedRows =
           await (database.select(database.syncJobs)
-                ..where((tbl) => tbl.status.equals(SyncJobStatus.pending.name))
-                ..orderBy([
-                  (tbl) => OrderingTerm.asc(tbl.createdAt),
-                  (tbl) => OrderingTerm.asc(tbl.localId),
-                ])
-                ..limit(1))
-              .getSingleOrNull();
+                ..where(
+                  (tbl) => tbl.status.isIn([
+                    SyncJobStatus.pending.name,
+                    SyncJobStatus.running.name,
+                    SyncJobStatus.failed.name,
+                  ]),
+                )
+                ..orderBy([(tbl) => OrderingTerm.asc(tbl.localId)]))
+              .get();
 
-      if (row == null) {
-        return null;
+      final encounteredEntities = <String>{};
+
+      for (final row in unfinishedRows) {
+        // Only the earliest unfinished job for each entity is eligible.
+        if (!encounteredEntities.add(row.entityId)) {
+          continue;
+        }
+
+        // An earlier running or failed job blocks this entity. Jobs belonging
+        // to other entities can still be considered.
+        if (row.status != SyncJobStatus.pending.name) {
+          continue;
+        }
+
+        final updatedRows =
+            await (database.update(database.syncJobs)..where(
+                  (tbl) =>
+                      tbl.localId.equals(row.localId) &
+                      tbl.status.equals(SyncJobStatus.pending.name),
+                ))
+                .write(
+                  SyncJobsCompanion(
+                    status: Value(SyncJobStatus.running.name),
+                    updatedAt: Value(DateTime.now()),
+                  ),
+                );
+
+        // Another claimant may have claimed the job first.
+        if (updatedRows == 0) {
+          continue;
+        }
+
+        final claimedRow = await (database.select(
+          database.syncJobs,
+        )..where((tbl) => tbl.localId.equals(row.localId))).getSingle();
+
+        return _mapRow(claimedRow);
       }
 
-      final now = DateTime.now();
-
-      final updatedRows =
-          await (database.update(database.syncJobs)..where(
-                (tbl) =>
-                    tbl.localId.equals(row.localId) &
-                    tbl.status.equals(SyncJobStatus.pending.name),
-              ))
-              .write(
-                SyncJobsCompanion(
-                  status: Value(SyncJobStatus.running.name),
-                  updatedAt: Value(now),
-                ),
-              );
-      if (updatedRows == 0) {
-        return null;
-      }
-
-      final claimedRow = await (database.select(
-        database.syncJobs,
-      )..where((tbl) => tbl.localId.equals(row.localId))).getSingle();
-
-      return _mapRow(claimedRow);
+      return null;
     });
   }
 
@@ -213,20 +227,33 @@ class SyncQueueRepository {
     });
   }
 
-  Future<void> retryFailedJobs() async {
-    await (database.update(
-      database.syncJobs,
-    )..where((tbl) => tbl.status.equals(SyncJobStatus.failed.name))).write(
-      SyncJobsCompanion(
-        status: Value(SyncJobStatus.pending.name),
-        lastError: const Value(null),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
+  Future<void> retryFailedJob(int localId) async {
+    final updatedRows =
+        await (database.update(database.syncJobs)..where(
+              (tbl) =>
+                  tbl.localId.equals(localId) &
+                  tbl.status.equals(SyncJobStatus.failed.name),
+            ))
+            .write(
+              SyncJobsCompanion(
+                status: Value(SyncJobStatus.pending.name),
+                lastError: const Value(null),
+                updatedAt: Value(DateTime.now()),
+              ),
+            );
+
+    if (updatedRows == 0) {
+      throw StateError(
+        'Cannot retry sync job $localId because it is not failed.',
+      );
+    }
   }
 
-  Future<void> recoverStaleRunningJobs() async {
-    final cutoff = DateTime.now().subtract(const Duration(minutes: 10));
+  Future<void> recoverStaleRunningJobs({
+    Duration staleAfter = const Duration(minutes: 10),
+  }) async {
+    final now = DateTime.now();
+    final cutoff = now.subtract(staleAfter);
 
     await (database.update(database.syncJobs)..where(
           (tbl) =>
@@ -236,9 +263,15 @@ class SyncQueueRepository {
         .write(
           SyncJobsCompanion(
             status: Value(SyncJobStatus.pending.name),
-            updatedAt: Value(DateTime.now()),
+            updatedAt: Value(now),
           ),
         );
+  }
+
+  Future<int> deleteCompletedJobs() {
+    return (database.delete(
+      database.syncJobs,
+    )..where((tbl) => tbl.status.equals(SyncJobStatus.done.name))).go();
   }
 
   SyncQueueItem _mapRow(SyncJob row) {
