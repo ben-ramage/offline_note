@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:offline_note/features/create/domain/entities/post.dart';
+import 'package:offline_note/features/create/domain/entities/sync_types.dart';
 import 'package:offline_note/features/create/domain/repos/local_post_repository.dart';
 import 'package:offline_note/features/create/presentation/cubits/draft_state.dart';
 
@@ -43,9 +44,9 @@ class DraftCubit extends Cubit<DraftState> {
         updatedAt: now,
         draftDate: draft.draftDate ?? now,
         isDraft: true,
-        // syncState: LocalSyncState.localOnly.name,
-        // pendingAction: PendingAction.none.name,
-        // lastSyncError: null,
+        syncState: LocalSyncState.localOnly.name,
+        pendingAction: PendingAction.none.name,
+        lastSyncError: null,
         isDeleted: false,
       );
 

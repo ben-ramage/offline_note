@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_note/features/create/data/local/draft_image_session.dart';
+import 'package:offline_note/features/create/data/images/draft_image_session.dart';
 
 void main() {
   late Directory tempDirectory;
