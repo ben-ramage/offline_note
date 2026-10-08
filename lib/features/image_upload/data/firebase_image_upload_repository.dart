@@ -33,11 +33,19 @@ class FirebaseImageUploadRepository implements ImageUploadRepository {
 
   @override
   Future<void> deleteImage(String storagePath) async {
-    if (storagePath.trim().isEmpty) {
+    final normalizedStoragePath = storagePath.trim();
+
+    if (normalizedStoragePath.trim().isEmpty) {
       return;
     }
 
-    await storage.ref(storagePath).delete();
+    try {
+      await storage.ref(normalizedStoragePath).delete();
+    } on FirebaseException catch (error) {
+      if (error.code != 'object-not-found') {
+        rethrow;
+      }
+    }
   }
 
   Future<ImageUpload> _uploadImage({
