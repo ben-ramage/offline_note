@@ -26,7 +26,7 @@ class SyncRunner {
     Connectivity? connectivity,
   }) : connectivity = connectivity ?? Connectivity();
 
-  Future<void> runPendingJob() async {
+  Future<void> runPendingJobs() async {
     if (_isRunning) {
       return;
     }
