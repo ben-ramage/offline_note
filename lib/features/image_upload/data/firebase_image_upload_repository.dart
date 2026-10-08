@@ -11,16 +11,24 @@ class FirebaseImageUploadRepository implements ImageUploadRepository {
     : storage = storageInstance ?? FirebaseStorage.instance;
 
   @override
-  Future<ImageUpload> uploadImageMobile(String path, String userId) async {
+  Future<ImageUpload> uploadImageMobile({
+    required String path,
+    required String userId,
+    required String postId,
+  }) async {
     final file = XFile(path);
     final fileBytes = await file.readAsBytes();
 
-    return _uploadImage(fileBytes: fileBytes, userId: userId);
+    return _uploadImage(fileBytes: fileBytes, userId: userId, postId: postId);
   }
 
   @override
-  Future<ImageUpload> uploadImageWeb(Uint8List fileBytes, String userId) async {
-    return _uploadImage(fileBytes: fileBytes, userId: userId);
+  Future<ImageUpload> uploadImageWeb({
+    required Uint8List fileBytes,
+    required String userId,
+    required String postId,
+  }) async {
+    return _uploadImage(fileBytes: fileBytes, userId: userId, postId: postId);
   }
 
   @override
@@ -35,9 +43,21 @@ class FirebaseImageUploadRepository implements ImageUploadRepository {
   Future<ImageUpload> _uploadImage({
     required Uint8List fileBytes,
     required String userId,
+    required String postId,
   }) async {
     if (fileBytes.isEmpty) {
-      throw Exception('Image is empty.');
+      throw ArgumentError('Image data cannot be empty.');
+    }
+
+    final normalizedUserId = userId.trim();
+    final normalizedPostId = postId.trim();
+
+    if (normalizedUserId.isEmpty) {
+      throw ArgumentError.value(userId, 'userId', 'User ID is required.');
+    }
+
+    if (normalizedPostId.isEmpty) {
+      throw ArgumentError.value(postId, 'postId', 'Post ID is required.');
     }
 
     final compressedBytes = await _compressImage(fileBytes);
@@ -46,13 +66,11 @@ class FirebaseImageUploadRepository implements ImageUploadRepository {
       throw Exception('Image compression failed.');
     }
 
-    final fileName = '${DateTime.now().microsecondsSinceEpoch}.webp';
-
     final storageRef = storage
         .ref()
         .child('images')
-        .child(userId)
-        .child(fileName);
+        .child(normalizedUserId)
+        .child('$normalizedPostId.webp');
 
     final snapshot = await storageRef.putData(
       compressedBytes,
