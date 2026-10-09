@@ -212,6 +212,142 @@ class PostCubit extends Cubit<PostState> {
     }
   }
 
+  Future<bool> retryFailedPost(String postId) async {
+    final normalizedPostId = postId.trim();
+
+    try {
+      if (normalizedPostId.isEmpty) {
+        throw ArgumentError.value(postId, 'postId', 'Post ID is required.');
+      }
+
+      final post = await localPostRepository.getPostById(normalizedPostId);
+
+      if (post == null) {
+        throw StateError('Post $normalizedPostId was not found.');
+      }
+
+      if (post.isDraft) {
+        throw StateError('Drafts do not have remote sync jobs.');
+      }
+
+      if (post.syncState != LocalSyncState.failed.name) {
+        throw StateError(
+          'Post $normalizedPostId is not in the failed sync state.',
+        );
+      }
+
+      final pendingActionValue = post.pendingAction;
+
+      if (pendingActionValue == null) {
+        throw StateError(
+          'Post $normalizedPostId has no pending action to retry.',
+        );
+      }
+
+      final pendingAction = PendingActionX.fromValue(pendingActionValue);
+
+      if (pendingAction == PendingAction.none) {
+        throw StateError(
+          'Post $normalizedPostId has no pending action to retry.',
+        );
+      }
+
+      // Update the Post first. Its failed queue job prevents the runner from
+      // claiming work for this post until the job is moved back to pending.
+      await localPostRepository.updateSyncMetadata(
+        normalizedPostId,
+        syncState: LocalSyncState.pending,
+        pendingAction: pendingAction,
+        lastSyncError: null,
+      );
+
+      try {
+        await syncQueueRepository.retryFailedJobForEntity(normalizedPostId);
+      } catch (error) {
+        // Restore the local failure state if the queue transition fails.
+        try {
+          await localPostRepository.updateSyncMetadata(
+            normalizedPostId,
+            syncState: LocalSyncState.failed,
+            pendingAction: pendingAction,
+            lastSyncError: post.lastSyncError,
+          );
+        } catch (_) {
+          // Preserve the original queue error.
+        }
+
+        rethrow;
+      }
+
+      unawaited(_requestSync(normalizedPostId));
+
+      return true;
+    } catch (error) {
+      _emitError('Failed to retry post $normalizedPostId: $error');
+
+      return false;
+    }
+  }
+
+  Future<bool> discardFailedPost(String postId) async {
+    final normalizedPostId = postId.trim();
+
+    try {
+      if (normalizedPostId.isEmpty) {
+        throw ArgumentError.value(postId, 'postId', 'Post ID is required.');
+      }
+
+      final post = await localPostRepository.getPostById(normalizedPostId);
+
+      if (post == null) {
+        throw StateError('Post $normalizedPostId was not found.');
+      }
+
+      if (post.isDraft) {
+        throw StateError('Drafts must be deleted through DraftCubit.');
+      }
+
+      if (post.syncState != LocalSyncState.failed.name) {
+        throw StateError('Only failed posts can be manually discarded.');
+      }
+
+      final deletedPost = post.copyWith(
+        updatedAt: DateTime.now(),
+        syncState: LocalSyncState.pending.name,
+        pendingAction: PendingAction.delete.name,
+        lastSyncError: null,
+        isDeleted: true,
+      );
+
+      // The failed queue job currently blocks this entity, so write the local
+      // tombstone before replacing that job with runnable deletion work.
+      await localPostRepository.upsertPost(deletedPost);
+
+      try {
+        await syncQueueRepository.replaceUnfinishedJobsWithDelete(
+          normalizedPostId,
+        );
+      } catch (error) {
+        // Restore the original failed Post if the queue could not be changed.
+        try {
+          await localPostRepository.upsertPost(post);
+        } catch (_) {
+          // Preserve the original queue error.
+        }
+
+        rethrow;
+      }
+
+      unawaited(_requestSync(normalizedPostId));
+
+      return true;
+    } catch (error) {
+      _emitError('Failed to discard post $normalizedPostId: $error');
+
+      return false;
+    }
+  }
+
   Future<void> _requestSync(String postId) async {
     try {
       await syncRunner.runPendingJobs();

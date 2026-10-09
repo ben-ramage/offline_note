@@ -249,6 +249,54 @@ class SyncQueueRepository {
     }
   }
 
+  Future<void> retryFailedJobForEntity(String entityId) async {
+    final normalizedEntityId = entityId.trim();
+
+    if (normalizedEntityId.isEmpty) {
+      throw ArgumentError.value(entityId, 'entityId', 'Entity ID is required.');
+    }
+
+    await database.transaction(() async {
+      final failedJob =
+          await (database.select(database.syncJobs)
+                ..where(
+                  (tbl) =>
+                      tbl.entityId.equals(normalizedEntityId) &
+                      tbl.status.equals(SyncJobStatus.failed.name),
+                )
+                ..orderBy([(tbl) => OrderingTerm.asc(tbl.localId)])
+                ..limit(1))
+              .getSingleOrNull();
+
+      if (failedJob == null) {
+        throw StateError(
+          'No failed sync job exists for post $normalizedEntityId.',
+        );
+      }
+
+      final updatedRows =
+          await (database.update(database.syncJobs)..where(
+                (tbl) =>
+                    tbl.localId.equals(failedJob.localId) &
+                    tbl.status.equals(SyncJobStatus.failed.name),
+              ))
+              .write(
+                SyncJobsCompanion(
+                  status: Value(SyncJobStatus.pending.name),
+                  lastError: const Value(null),
+                  updatedAt: Value(DateTime.now()),
+                ),
+              );
+
+      if (updatedRows == 0) {
+        throw StateError(
+          'The failed sync job for post $normalizedEntityId changed '
+          'before it could be retried.',
+        );
+      }
+    });
+  }
+
   Future<void> recoverStaleRunningJobs({
     Duration staleAfter = const Duration(minutes: 10),
   }) async {
@@ -272,6 +320,76 @@ class SyncQueueRepository {
     return (database.delete(
       database.syncJobs,
     )..where((tbl) => tbl.status.equals(SyncJobStatus.done.name))).go();
+  }
+
+  Future<void> replaceUnfinishedJobsWithDelete(String entityId) async {
+    final normalizedEntityId = entityId.trim();
+
+    if (normalizedEntityId.isEmpty) {
+      throw ArgumentError.value(entityId, 'entityId', 'Entity ID is required.');
+    }
+
+    await database.transaction(() async {
+      final runningJob =
+          await (database.select(database.syncJobs)
+                ..where(
+                  (tbl) =>
+                      tbl.entityId.equals(normalizedEntityId) &
+                      tbl.status.equals(SyncJobStatus.running.name),
+                )
+                ..limit(1))
+              .getSingleOrNull();
+
+      if (runningJob != null) {
+        throw StateError(
+          'Post $normalizedEntityId is currently syncing and cannot '
+          'be discarded yet.',
+        );
+      }
+
+      final failedJob =
+          await (database.select(database.syncJobs)
+                ..where(
+                  (tbl) =>
+                      tbl.entityId.equals(normalizedEntityId) &
+                      tbl.status.equals(SyncJobStatus.failed.name),
+                )
+                ..orderBy([(tbl) => OrderingTerm.asc(tbl.localId)])
+                ..limit(1))
+              .getSingleOrNull();
+
+      if (failedJob == null) {
+        throw StateError(
+          'No failed sync job exists for post $normalizedEntityId.',
+        );
+      }
+
+      // Manual discard explicitly supersedes pending and failed work for this
+      // post. Completed jobs can remain for normal cleanup.
+      await (database.delete(database.syncJobs)..where(
+            (tbl) =>
+                tbl.entityId.equals(normalizedEntityId) &
+                tbl.status.isIn([
+                  SyncJobStatus.pending.name,
+                  SyncJobStatus.failed.name,
+                ]),
+          ))
+          .go();
+
+      final now = DateTime.now();
+
+      await database
+          .into(database.syncJobs)
+          .insert(
+            SyncJobsCompanion.insert(
+              entityId: normalizedEntityId,
+              jobType: SyncJobType.deletePost.name,
+              status: SyncJobStatus.pending.name,
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+    });
   }
 
   SyncQueueItem _mapRow(SyncJob row) {
